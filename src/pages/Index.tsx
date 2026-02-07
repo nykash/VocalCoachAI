@@ -1,50 +1,82 @@
-import { Music2 } from "lucide-react";
-import AudioVisualizer from "@/components/AudioVisualizer";
-import MicButton from "@/components/MicButton";
-import VolumeIndicator from "@/components/VolumeIndicator";
+import { useState } from "react";
+import FrequencySpectrum from "@/components/FrequencySpectrum";
+import WaveformDisplay from "@/components/WaveformDisplay";
+import AnalyzerControls from "@/components/AnalyzerControls";
 import { useAudioAnalyser } from "@/hooks/useAudioAnalyser";
 
 const Index = () => {
-  const { isListening, analyserNode, error, toggleListening } = useAudioAnalyser();
+  const {
+    isListening,
+    isPaused,
+    analyserNode,
+    sampleRate,
+    error,
+    toggleListening,
+    togglePause,
+  } = useAudioAnalyser();
+
+  const [ampScale, setAmpScale] = useState(0.25);
+  const [showMode, setShowMode] = useState<"audio" | "freq" | "both">("both");
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12">
+    <div className="flex min-h-screen flex-col items-center bg-background px-4 py-6">
       {/* Header */}
-      <div className="mb-10 text-center animate-float">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-          <Music2 className="h-7 w-7 text-primary" />
-        </div>
-        <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
-          Sing<span className="text-primary">Wave</span>
-        </h1>
-        <p className="mt-2 text-muted-foreground text-lg">
-          Sing into your mic and watch the magic
-        </p>
-      </div>
+      <h1 className="mb-4 text-xl font-bold text-destructive tracking-wide">
+        Microphone Sound Analyzer
+      </h1>
 
-      {/* Visualizer */}
-      <div className="w-full max-w-2xl space-y-6">
-        <AudioVisualizer analyserNode={analyserNode} isListening={isListening} />
+      {/* Main container */}
+      <div className="w-full max-w-4xl">
+        {/* Panels */}
+        <div className="rounded-t-xl border border-border bg-card overflow-hidden">
+          {(showMode === "freq" || showMode === "both") && (
+            <FrequencySpectrum
+              analyserNode={analyserNode}
+              isListening={isListening}
+              isPaused={isPaused}
+              sampleRate={sampleRate}
+            />
+          )}
 
-        {/* Volume indicator */}
-        <VolumeIndicator analyserNode={analyserNode} isListening={isListening} />
+          {showMode === "both" && (
+            <div className="border-t border-border" />
+          )}
 
-        {/* Controls */}
-        <div className="flex flex-col items-center gap-4">
-          <MicButton isListening={isListening} onToggle={toggleListening} />
-
-          <p className="text-sm text-muted-foreground">
-            {isListening
-              ? "Listening… Sing your heart out! 🎶"
-              : "Tap the mic to start"}
-          </p>
-
-          {error && (
-            <div className="mt-2 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
-              {error}
-            </div>
+          {(showMode === "audio" || showMode === "both") && (
+            <WaveformDisplay
+              analyserNode={analyserNode}
+              isListening={isListening}
+              isPaused={isPaused}
+              ampScale={ampScale}
+            />
           )}
         </div>
+
+        {/* Controls bar */}
+        <AnalyzerControls
+          isListening={isListening}
+          isPaused={isPaused}
+          ampScale={ampScale}
+          showMode={showMode}
+          onToggleListening={toggleListening}
+          onTogglePause={togglePause}
+          onAmpScaleChange={setAmpScale}
+          onShowModeChange={setShowMode}
+        />
+
+        {/* Error */}
+        {error && (
+          <div className="mt-4 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive text-center">
+            {error}
+          </div>
+        )}
+
+        {/* Status */}
+        {!isListening && (
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Press ▶ to start capturing audio from your microphone
+          </p>
+        )}
       </div>
     </div>
   );
