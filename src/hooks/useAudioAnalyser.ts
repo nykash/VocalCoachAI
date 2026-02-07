@@ -1,15 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
-export interface AudioAnalyserState {
-  isListening: boolean;
-  analyserNode: AnalyserNode | null;
-  error: string | null;
-}
-
 export function useAudioAnalyser() {
   const [isListening, setIsListening] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
+  const [sampleRate, setSampleRate] = useState(44100);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -31,8 +27,10 @@ export function useAudioAnalyser() {
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
 
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.75;
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.7;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -10;
 
       source.connect(analyser);
 
@@ -40,8 +38,10 @@ export function useAudioAnalyser() {
       streamRef.current = stream;
       sourceRef.current = source;
 
+      setSampleRate(audioContext.sampleRate);
       setAnalyserNode(analyser);
       setIsListening(true);
+      setIsPaused(false);
     } catch (err) {
       if (err instanceof DOMException && err.name === "NotAllowedError") {
         setError("Microphone access denied. Please allow microphone access and try again.");
@@ -67,6 +67,7 @@ export function useAudioAnalyser() {
 
     setAnalyserNode(null);
     setIsListening(false);
+    setIsPaused(false);
   }, []);
 
   const toggleListening = useCallback(() => {
@@ -77,6 +78,10 @@ export function useAudioAnalyser() {
     }
   }, [isListening, startListening, stopListening]);
 
+  const togglePause = useCallback(() => {
+    setIsPaused((p) => !p);
+  }, []);
+
   useEffect(() => {
     return () => {
       stopListening();
@@ -85,9 +90,12 @@ export function useAudioAnalyser() {
 
   return {
     isListening,
+    isPaused,
     analyserNode,
+    sampleRate,
     error,
     toggleListening,
+    togglePause,
     startListening,
     stopListening,
   };
