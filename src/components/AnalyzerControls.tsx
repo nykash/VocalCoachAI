@@ -80,7 +80,7 @@ const AnalyzerControls = ({
           value={ampScale}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
-            if (!isNaN(v) && v > 0) onAmpScaleChange(v);
+            if (!isNaN(v) && v >= 0) onAmpScaleChange(v);
           }}
           className="h-7 w-16 text-center text-sm"
         />
