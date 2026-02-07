@@ -1,6 +1,7 @@
 import { useState } from "react";
 import FrequencySpectrum from "@/components/FrequencySpectrum";
 import WaveformDisplay from "@/components/WaveformDisplay";
+import NoteDetector from "@/components/NoteDetector";
 import AnalyzerControls from "@/components/AnalyzerControls";
 import { useAudioAnalyser } from "@/hooks/useAudioAnalyser";
 
@@ -50,6 +51,15 @@ const Index = () => {
               ampScale={ampScale}
             />
           )}
+
+          <div className="border-t border-border" />
+
+          <NoteDetector
+            analyserNode={analyserNode}
+            isListening={isListening}
+            isPaused={isPaused}
+            sampleRate={sampleRate}
+          />
         </div>
 
         {/* Controls bar */}
