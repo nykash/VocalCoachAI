@@ -49,13 +49,13 @@ const FrequencySpectrum = ({ analyserNode, isListening, isPaused, sampleRate }: 
       freqData = new Float32Array(1024).fill(-80);
     }
 
-    const maxFreq = 10000; // 10 kHz
+    const maxFreq = 8000; // 8 kHz
     const binCount = freqData.length;
     const binFreqWidth = sampleRate / (binCount * 2);
     const maxBin = Math.min(Math.floor(maxFreq / binFreqWidth), binCount);
 
     const dbMin = -90;
-    const dbMax = -10;
+    const dbMax = -30;
 
     // Helper: freq -> x
     const freqToX = (f: number) => PADDING.left + (f / maxFreq) * plotW;

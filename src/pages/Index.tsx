@@ -15,7 +15,7 @@ const Index = () => {
     togglePause,
   } = useAudioAnalyser();
 
-  const [ampScale, setAmpScale] = useState(0.25);
+  const [ampScale, setAmpScale] = useState(0.02);
   const [showMode, setShowMode] = useState<"audio" | "freq" | "both">("both");
 
   return (
