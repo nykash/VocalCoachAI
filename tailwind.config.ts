@@ -13,6 +13,9 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -56,6 +59,11 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        visualizer: {
+          bar: "hsl(var(--visualizer-bar))",
+          "bar-active": "hsl(var(--visualizer-bar-active))",
+          glow: "hsl(var(--visualizer-glow))",
         },
       },
       borderRadius: {
