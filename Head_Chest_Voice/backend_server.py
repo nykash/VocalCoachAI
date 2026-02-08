@@ -21,9 +21,14 @@ import pickle
 import cv2
 import os
 from datetime import datetime
+import argparse
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend requests
+
+parser = argparse.ArgumentParser(description='Run the backend server')
+parser.add_argument('--port', type=int, default=8080, help='Port to run the server on')
+args = parser.parse_args()
 
 class VocalRegisterPredictor:
     """Simple predictor class for the backend"""
@@ -76,6 +81,12 @@ class VocalRegisterPredictor:
         Returns:
             dict with label, confidence, and probabilities
         """
+        audio = np.asarray(audio, dtype=np.float64)
+        if sr != 22050:
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=22050)
+            sr = 22050
+        if len(audio) < 1024:
+            raise ValueError(f"Audio too short: {len(audio)} samples (need at least ~0.05s)")
         # Convert to mel-spectrogram
         mel_spec = self.audio_to_melspec(audio, sr)
         
@@ -187,9 +198,15 @@ def predict_audio():
             
             # Read file
             audio_bytes = file.read()
+            if len(audio_bytes) == 0:
+                return jsonify({'error': 'File is empty'}), 400
             
-            # Load audio with librosa
-            audio_array, sample_rate = librosa.load(io.BytesIO(audio_bytes), sr=22050)
+            try:
+                audio_array, sample_rate = librosa.load(io.BytesIO(audio_bytes), sr=22050)
+            except Exception as load_err:
+                return jsonify({
+                    'error': f'Could not decode audio file. Use WAV or MP3. ({load_err})'
+                }), 400
             
         else:
             return jsonify({'error': 'No audio data provided'}), 400
@@ -283,21 +300,27 @@ def predict_realtime():
     Expects base64 encoded Float32Array from browser
     """
     if not model_loaded:
-        return jsonify({'error': 'Model not loaded'}), 500
+        return jsonify({'success': False, 'error': 'Model not loaded'}), 500
     
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         audio_base64 = data.get('audio_base64')
-        sample_rate = data.get('sample_rate', 22050)
+        sample_rate = int(data.get('sample_rate', 22050))
         
         if not audio_base64:
-            return jsonify({'error': 'No audio data provided'}), 400
+            return jsonify({'success': False, 'error': 'No audio data provided'}), 400
         
         # Decode base64 to float32 array
         audio_bytes = base64.b64decode(audio_base64)
         audio_array = np.frombuffer(audio_bytes, dtype=np.float32)
         
-        # Make prediction
+        if len(audio_array) < 1024:
+            return jsonify({
+                'success': False,
+                'error': f'Audio too short: {len(audio_array)} samples (record at least ~0.5s)'
+            }), 400
+        
+        # Make prediction (predictor resamples to 22050 if needed)
         result = predictor.predict(audio_array, sample_rate)
         
         return jsonify({
@@ -307,6 +330,7 @@ def predict_realtime():
         })
         
     except Exception as e:
+        print(f"[predict_realtime] Error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -319,7 +343,7 @@ if __name__ == '__main__':
     print("=" * 60)
     print("\nServer starting...")
     print("\n🌐 OPEN IN BROWSER:")
-    print("   http://localhost:5000")
+    print(f"   http://localhost:{args.port}")
     print("\nAPI Endpoints:")
     print("  - GET  /               - Web interface")
     print("  - GET  /api/health     - Health check")
@@ -329,4 +353,4 @@ if __name__ == '__main__':
     print("\nPress Ctrl+C to stop the server")
     print("=" * 60 + "\n")
     
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    app.run(host='0.0.0.0', port=args.port, debug=True)

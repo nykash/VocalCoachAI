@@ -1,43 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-
-/** Build a WAV Blob from mono Float32 samples (range -1..1). */
-function float32ToWavBlob(samples: Float32Array, sampleRate: number): Blob {
-  const numChannels = 1;
-  const bitsPerSample = 16;
-  const bytesPerSample = bitsPerSample / 8;
-  const blockAlign = numChannels * bytesPerSample;
-  const dataSize = samples.length * blockAlign;
-  const buffer = new ArrayBuffer(44 + dataSize);
-  const view = new DataView(buffer);
-  let offset = 0;
-  const write = (value: number, bytes: number, littleEndian = true) => {
-    if (bytes === 2) view.setInt16(offset, value, littleEndian);
-    else if (bytes === 4) view.setInt32(offset, value, littleEndian);
-    offset += bytes;
-  };
-  const writeStr = (str: string) => {
-    for (let i = 0; i < str.length; i++) view.setUint8(offset++, str.charCodeAt(i));
-  };
-  writeStr("RIFF");
-  write(36 + dataSize, 4);
-  writeStr("WAVE");
-  writeStr("fmt ");
-  write(16, 4); // chunk size
-  write(1, 2); // PCM
-  write(numChannels, 2);
-  write(sampleRate, 4);
-  write(sampleRate * blockAlign, 4); // byte rate
-  write(blockAlign, 2);
-  write(bitsPerSample, 2);
-  writeStr("data");
-  write(dataSize, 4);
-  for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-    offset += 2;
-  }
-  return new Blob([buffer], { type: "audio/wav" });
-}
+import { float32ToWavBlob } from "@/lib/audioUtils";
 
 export function useAudioAnalyser() {
   const [isListening, setIsListening] = useState(false);
@@ -50,12 +12,17 @@ export function useAudioAnalyser() {
   const streamRef = useRef<MediaStream | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const recorderChunksRef = useRef<Float32Array[]>([]);
+  const recentChunksRef = useRef<Float32Array[]>([]);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
+
+  /** Max samples to keep for "recent" buffer (~2 seconds at 48 kHz). */
+  const RECENT_MAX_SAMPLES = 2 * 48000;
 
   const startListening = useCallback(async () => {
     try {
       setError(null);
       recorderChunksRef.current = [];
+      recentChunksRef.current = [];
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -80,7 +47,15 @@ export function useAudioAnalyser() {
         const input = e.inputBuffer.getChannelData(0);
         const output = e.outputBuffer.getChannelData(0);
         output.set(input); // pass through to analyser (otherwise analyser gets silence)
-        recorderChunksRef.current.push(new Float32Array(input));
+        const chunk = new Float32Array(input);
+        recorderChunksRef.current.push(chunk);
+        const recent = recentChunksRef.current;
+        recent.push(chunk);
+        let total = recent.reduce((acc, c) => acc + c.length, 0);
+        while (total > RECENT_MAX_SAMPLES && recent.length > 1) {
+          const first = recent.shift()!;
+          total -= first.length;
+        }
       };
       source.connect(scriptProcessor);
       scriptProcessor.connect(analyser);
@@ -171,6 +146,22 @@ export function useAudioAnalyser() {
     });
   }, [stopListening]);
 
+  /** Return the last ~2 seconds of float32 samples for vocal register API. */
+  const getRecentFloat32Samples = useCallback((): { data: Float32Array; sampleRate: number } | null => {
+    const ctx = audioContextRef.current;
+    const recent = recentChunksRef.current;
+    if (!ctx || !recent.length) return null;
+    const total = recent.reduce((acc, c) => acc + c.length, 0);
+    if (total < 2048) return null;
+    const merged = new Float32Array(total);
+    let off = 0;
+    for (const c of recent) {
+      merged.set(c, off);
+      off += c.length;
+    }
+    return { data: merged, sampleRate: ctx.sampleRate };
+  }, []);
+
   /** Return a WAV Blob of everything recorded so far WITHOUT stopping the mic. */
   const getRecordedBlob = useCallback((): Blob | null => {
     const chunks = recorderChunksRef.current;
@@ -218,5 +209,6 @@ export function useAudioAnalyser() {
     stopListening,
     stopListeningAndGetRecordedBlob,
     getRecordedBlob,
+    getRecentFloat32Samples,
   };
 }

@@ -159,7 +159,7 @@ export default function TuneMeModal({ open, onOpenChange, onClose }: TuneMeModal
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Tune me</DialogTitle>
+          <DialogTitle>Tune Me</DialogTitle>
           <DialogDescription>
             We&apos;ll tell you if you&apos;re in tune to the nearest note, or how far off you are (flat or sharp).
           </DialogDescription>

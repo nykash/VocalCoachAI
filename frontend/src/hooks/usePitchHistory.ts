@@ -20,6 +20,35 @@ export interface PitchHistorySummary {
 
 const HISTORY_WINDOW_MS = 30_000;
 
+/** Build a PitchHistorySummary from an array of pitch results (e.g. from analyzing a recording). */
+export function buildPitchSummaryFromResults(results: PitchResult[]): PitchHistorySummary {
+  const noteMap = new Map<string, { count: number; totalDeviation: number }>();
+  let totalDev = 0;
+  for (const r of results) {
+    totalDev += Math.abs(r.centsOff);
+    const existing = noteMap.get(r.noteLabel);
+    if (existing) {
+      existing.count++;
+      existing.totalDeviation += r.centsOff;
+    } else {
+      noteMap.set(r.noteLabel, { count: 1, totalDeviation: r.centsOff });
+    }
+  }
+  const notes: NoteSummary[] = [...noteMap.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([note, { count, totalDeviation }]) => ({
+      note,
+      count,
+      avgDeviation: Math.round(totalDeviation / count),
+    }));
+  return {
+    totalDetections: results.length,
+    notes,
+    overallAvgDeviation: results.length > 0 ? Math.round(totalDev / results.length) : 0,
+    currentPitch: results.length > 0 ? results[results.length - 1] : null,
+  };
+}
+
 export function usePitchHistory(pitchResult: PitchResult | null) {
   const historyRef = useRef<PitchSnapshot[]>([]);
 
@@ -126,7 +155,7 @@ export function usePitchHistory(pitchResult: PitchResult | null) {
       "",
       "You have two tools available:",
       "- show_tuning_modal: Call this when the user asks about their tuning, pitch, or intonation.",
-      "- show_style_modal: Call this when the user asks about their singing style, vocal tone, or what artist they sound like.",
+      "- show_style_modal: Call this when the user asks about their singing style, vocal tone, what artist they sound like, or artists with similar voices.",
       "Always call the relevant tool when the user's question matches. You may also include a short text response alongside the tool call."
     );
 

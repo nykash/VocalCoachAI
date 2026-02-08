@@ -4,7 +4,10 @@ import { detectPitch, frequencyToNote, type PitchResult } from "@/lib/pitchDetec
 /** EMA alpha for smoothing song pitch (lower = more stable, less responsive). */
 const SONG_PITCH_SMOOTHING_ALPHA = 0.2;
 
-export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
+/** Audio source: File (upload) or URL string (e.g. backend /songs/filename). */
+export type SongAudioSource = File | string | null;
+
+export function useSongAnalyser(audioSource: SongAudioSource, isPlaying: boolean) {
   const [songPitch, setSongPitch] = useState<PitchResult | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -13,6 +16,7 @@ export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
   const animationRef = useRef<number>(0);
   const prevNoteRef = useRef<string | null>(null);
   const matchCountRef = useRef(0);
@@ -22,7 +26,7 @@ export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
   const smoothedFreqRef = useRef<number | null>(null);
 
   const initializeAudio = useCallback(async () => {
-    if (!audioFile) return;
+    if (!audioSource) return;
 
     try {
       // Create or resume audio context
@@ -31,9 +35,17 @@ export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
       }
       const audioContext = audioContextRef.current;
 
-      // Create audio element for playback
+      // Create audio element for playback (File → object URL, string → URL as-is)
       const audioElement = new Audio();
-      audioElement.src = URL.createObjectURL(audioFile);
+      if (typeof audioSource === "string") {
+        // Required for Web Audio API when loading from another origin (e.g. backend)
+        audioElement.crossOrigin = "anonymous";
+        audioElement.src = audioSource;
+      } else {
+        const url = URL.createObjectURL(audioSource);
+        audioElement.src = url;
+        blobUrlRef.current = url;
+      }
       audioElementRef.current = audioElement;
 
       // Create media element audio source
@@ -72,7 +84,7 @@ export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
     } catch (err) {
       console.error("Error initializing audio:", err);
     }
-  }, [audioFile]);
+  }, [audioSource]);
 
   const play = useCallback(async () => {
     if (!audioElementRef.current) {
@@ -188,15 +200,17 @@ export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
     return () => cancelAnimationFrame(animationRef.current);
   }, [isPlaying]);
 
-  // Cleanup on unmount or file change
+  // On source change: clear refs so next play() re-initializes; cleanup blob URL
   useEffect(() => {
+    const prevBlob = blobUrlRef.current;
+    const prevEl = audioElementRef.current;
+    audioElementRef.current = null;
+    blobUrlRef.current = null;
     return () => {
-      if (audioElementRef.current) {
-        audioElementRef.current.pause();
-        URL.revokeObjectURL(audioElementRef.current.src);
-      }
+      if (prevEl) prevEl.pause();
+      if (prevBlob) URL.revokeObjectURL(prevBlob);
     };
-  }, [audioFile]);
+  }, [audioSource]);
 
   return {
     songPitch,

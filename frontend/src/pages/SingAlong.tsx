@@ -1,6 +1,13 @@
 import { useState, useCallback } from "react";
-import { Play, Pause, Square, Loader2 } from "lucide-react";
-import AudioUploader from "@/components/AudioUploader";
+import { Link } from "react-router-dom";
+import { Play, Pause, Square, Loader2, ArrowLeft } from "lucide-react";
+
+export interface SingAlongProps {
+  /** When true, render inside another page (e.g. Index main frame) with Back calling onBack instead of routing */
+  embedded?: boolean;
+  onBack?: () => void;
+}
+import SongPicker from "@/components/SongPicker";
 import LyricsUploader from "@/components/LyricsUploader";
 import PitchGraphDisplay from "@/components/PitchGraphDisplay";
 import MicButton from "@/components/MicButton";
@@ -11,9 +18,12 @@ import { usePitchDetection } from "@/hooks/usePitchDetection";
 import { Slider } from "@/components/ui/slider";
 import LyricsPanel from "@/components/LyricsPanel";
 import { fetchVaeTags, type VaeTagResult } from "@/lib/analysisApi";
+import { songUrl } from "@/lib/songsApi";
 
-const SingAlong = () => {
-  const [audioFile, setAudioFile] = useState<File | null>(null);
+const STORAGE_TWIN_ARTIST = "vocalCoach_twinArtist";
+
+const SingAlong = ({ embedded, onBack }: SingAlongProps = {}) => {
+  const [selectedSongFilename, setSelectedSongFilename] = useState<string | null>(null);
   const [lyricsFile, setLyricsFile] = useState<File | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [singingTags, setSingingTags] = useState<VaeTagResult | null>(null);
@@ -38,6 +48,9 @@ const SingAlong = () => {
         try {
           const result = await fetchVaeTags(blob);
           setSingingTags(result);
+          if (result.top_artist && result.top_artist.trim()) {
+            localStorage.setItem(STORAGE_TWIN_ARTIST, result.top_artist.trim());
+          }
         } catch (e) {
           setTagsError(e instanceof Error ? e.message : "Failed to get singing tags");
           setSingingTags(null);
@@ -52,8 +65,9 @@ const SingAlong = () => {
     }
   }, [isListening, startListening, stopListeningAndGetRecordedBlob]);
 
+  const audioSource = selectedSongFilename ? songUrl(selectedSongFilename) : null;
   const { songPitch, currentTime, duration, play, pause, stop, seek } =
-    useSongAnalyser(audioFile, isPlaying);
+    useSongAnalyser(audioSource, isPlaying);
 
   const { result: userPitch } = usePitchDetection(
     analyserNode,
@@ -61,8 +75,8 @@ const SingAlong = () => {
     isPaused
   );
 
-  const handleFileSelect = (file: File) => {
-    setAudioFile(file);
+  const handleSongSelect = (filename: string) => {
+    setSelectedSongFilename(filename);
     setIsPlaying(false);
     pause();
   };
@@ -98,29 +112,52 @@ const SingAlong = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-background px-4 py-8">
-      {/* Header */}
-      <div className="mb-8 text-center">
-        <h1 className="mb-2 text-3xl font-bold text-foreground">Sing Along</h1>
-        <p className="text-muted-foreground">
-          Upload a song and match the pitch in real-time
-        </p>
+    <div className={`flex flex-col items-center px-4 py-8 ${embedded ? "w-full" : "min-h-screen bg-background"}`}>
+      {/* Back + Header */}
+      <div className="mb-8 w-full max-w-6xl flex items-center gap-4">
+        {embedded && onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-sm font-medium">Back to chat</span>
+          </button>
+        ) : (
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-sm font-medium">Back</span>
+          </Link>
+        )}
+        <div className="flex-1 text-center">
+          <h1 className="mb-1 text-3xl font-bold text-foreground">Sing Along</h1>
+          <p className="text-muted-foreground">
+            Pick a song and match the pitch in real-time
+          </p>
+        </div>
+        <div className="w-20" aria-hidden />
       </div>
 
       {/* Main container (horizontal layout: controls + lyrics) */}
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-        {/* File Upload Section */}
+        {/* Song picker */}
         <div className="rounded-lg border border-border bg-card p-6 space-y-4">
           <div>
-            <h3 className="text-sm font-semibold mb-3">Audio File</h3>
-            <AudioUploader
-              onFileSelect={handleFileSelect}
+            <h3 className="text-sm font-semibold mb-3">Song</h3>
+            <SongPicker
+              onSelect={handleSongSelect}
+              selectedFilename={selectedSongFilename}
               disabled={isPlaying}
+              placeholder="Pick a song from the library…"
             />
           </div>
 
-          {audioFile && (
+          {selectedSongFilename && (
             <div>
               <h3 className="text-sm font-semibold mb-3">Lyrics File (.lrc)</h3>
               <LyricsUploader
@@ -137,7 +174,7 @@ const SingAlong = () => {
         </div>
 
         {/* Song Controls */}
-        {audioFile && (
+        {selectedSongFilename && (
           <div className="rounded-lg border border-border bg-card p-6 space-y-4">
             <div className="space-y-2">
               <div className="flex gap-3">
@@ -190,7 +227,7 @@ const SingAlong = () => {
         )}
 
         {/* Microphone Control */}
-        {audioFile && (
+        {selectedSongFilename && (
           <div className="rounded-lg border border-border bg-card p-6 flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-foreground">Microphone</h3>
@@ -206,9 +243,9 @@ const SingAlong = () => {
         )}
 
         {/* Singing tags (shown after mic is paused and backend returns analysis) */}
-        {audioFile && (singingTags || tagsLoading || tagsError) && (
+        {selectedSongFilename && (singingTags || tagsLoading || tagsError) && (
           <div className="rounded-lg border border-border bg-card p-6 space-y-3">
-            <h3 className="font-semibold text-foreground">Singing style tags</h3>
+            <h3 className="font-semibold text-foreground">Singing Style Tags</h3>
             {tagsLoading && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -247,7 +284,7 @@ const SingAlong = () => {
         )}
 
         {/* Pitch Graph Display */}
-        {audioFile && (
+        {selectedSongFilename && (
           <PitchGraphDisplay
             targetPitch={songPitch}
             userPitch={isListening ? userPitch : null}
@@ -260,7 +297,7 @@ const SingAlong = () => {
 
         {/* Right column: Lyrics */}
         <div className="lg:col-span-1">
-          {audioFile && (
+          {selectedSongFilename && (
             <LyricsPanel
               lyricsFile={lyricsFile}
               currentTime={currentTime}
@@ -278,10 +315,10 @@ const SingAlong = () => {
         )}
 
         {/* Initial State */}
-        {!audioFile && (
+        {!selectedSongFilename && (
           <div className="rounded-lg border border-dashed border-border bg-muted/50 p-12 text-center">
             <p className="text-muted-foreground">
-              Start by uploading a song audio file
+              Pick a song from the dropdown to start
             </p>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { MessageCircle, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useChat } from "@/hooks/useChat";
+import { stripFnCallFromDisplay } from "@/lib/utils";
 import TuningModal from "@/components/TuningModal";
 import StyleModal from "@/components/StyleModal";
 import type { PitchHistorySummary } from "@/hooks/usePitchHistory";
@@ -29,12 +30,19 @@ export default function ChatPanel({
   getHistorySummary,
   getRecordedBlob,
 }: ChatPanelProps) {
-  const { messages, sendMessage, isLoading, error, pendingToolCalls, clearToolCalls } =
-    useChat();
+  const { messages, sendMessage, isLoading, error, pendingToolCalls, clearToolCalls, submitStyleResultForReply } =
+    useChat({ getRecordedBlob });
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tuningOpen, setTuningOpen] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
+
+  const lastAssistantMessage = useMemo(() => {
+    const m = [...messages].reverse().find((msg) => msg.role === "assistant");
+    const raw = (m?.content ?? "").trim();
+    const content = stripFnCallFromDisplay(raw);
+    return content || undefined;
+  }, [messages]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -47,8 +55,8 @@ export default function ChatPanel({
   useEffect(() => {
     if (pendingToolCalls.length === 0) return;
     for (const tc of pendingToolCalls) {
-      if (tc === "show_tuning_modal") setTuningOpen(true);
-      if (tc === "show_style_modal") setStyleOpen(true);
+      if (tc.name === "show_tuning_modal") setTuningOpen(true);
+      if (tc.name === "show_style_modal") setStyleOpen(true);
     }
     clearToolCalls();
   }, [pendingToolCalls, clearToolCalls]);
@@ -110,7 +118,7 @@ export default function ChatPanel({
                         : "bg-muted text-foreground"
                     }`}
                   >
-                    {msg.content}
+                    {stripFnCallFromDisplay(msg.content)}
                   </div>
                 </div>
               ))}
@@ -164,6 +172,10 @@ export default function ChatPanel({
         open={styleOpen}
         onOpenChange={setStyleOpen}
         getRecordedBlob={getRecordedBlob}
+        instructionsContent={lastAssistantMessage}
+        onCloseWithResult={(result, pitchSummary) => {
+          if (result) submitStyleResultForReply(result, pitchContext, pitchSummary ?? undefined);
+        }}
       />
     </>
   );

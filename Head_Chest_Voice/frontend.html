@@ -403,6 +403,7 @@
                                 </div>
                             </div>
                         </div>
+                        <div id="realtimeError" class="error" style="margin-top: 10px; min-height: 20px;"></div>
                     </div>
                 </div>
             </div>
@@ -456,14 +457,16 @@
     <script>
         // Auto-detect if we're running from Flask server or as a file
         const isFlaskServed = window.location.protocol === 'http:' || window.location.protocol === 'https:';
-        const API_URL = isFlaskServed ? '/api' : 'http://localhost:8000/api';
-        
-        let mediaRecorder;
-        let audioChunks = [];
+        const API_URL = isFlaskServed ? '/api' : 'http://localhost:8089/api';
+        const REALTIME_CHUNK_DURATION_SEC = 2.0;  // send this much audio each time
+        const MIN_SAMPLES_BEFORE_SEND = 0.5 * 22050;  // at least 0.5s at 22050 Hz
+
         let isRecording = false;
-        let audioContext;
-        let analyserNode;
-        let audioStream;
+        let audioContext = null;
+        let audioStream = null;
+        let realtimeProcessor = null;
+        let realtimeSamples = [];
+        let realtimeIntervalId = null;
 
         // Check server status on load
         checkServerStatus();
@@ -509,32 +512,41 @@
             }
         }
 
+        function float32ArrayToBase64(arr) {
+            const bytes = new Uint8Array(arr.buffer);
+            let binary = '';
+            const chunk = 8192;
+            for (let i = 0; i < bytes.length; i += chunk) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+            }
+            return btoa(binary);
+        }
+
         async function startRecording() {
             try {
                 audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(audioStream);
-                audioChunks = [];
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 22050 });
+                realtimeSamples = [];
 
-                mediaRecorder.ondataavailable = (event) => {
-                    audioChunks.push(event.data);
+                const source = audioContext.createMediaStreamSource(audioStream);
+                const bufferSize = 4096;
+                realtimeProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+                realtimeProcessor.onaudioprocess = (e) => {
+                    if (!isRecording) return;
+                    const input = e.inputBuffer.getChannelData(0);
+                    for (let i = 0; i < input.length; i++) realtimeSamples.push(input[i]);
                 };
+                source.connect(realtimeProcessor);
+                realtimeProcessor.connect(audioContext.destination);
 
-                mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    await processRealtimeAudio(audioBlob);
-                };
-
-                mediaRecorder.start();
                 isRecording = true;
-
                 document.getElementById('recordBtn').textContent = '⏹️ Stop Recording';
                 document.getElementById('recordBtn').className = 'btn record-btn btn-danger recording';
                 document.getElementById('recordingStatus').textContent = 'Recording... Speak or sing now!';
                 document.getElementById('realtimeResult').classList.add('show');
+                setRealtimeError('');
 
-                // Auto-process every 2 seconds while recording
-                processRecordingContinuously();
-
+                realtimeIntervalId = setInterval(sendRealtimeChunk, REALTIME_CHUNK_DURATION_SEC * 1000);
             } catch (error) {
                 console.error('Error accessing microphone:', error);
                 alert('Could not access microphone. Please check permissions.');
@@ -542,52 +554,58 @@
         }
 
         function stopRecording() {
-            if (mediaRecorder && isRecording) {
-                mediaRecorder.stop();
-                audioStream.getTracks().forEach(track => track.stop());
-                isRecording = false;
-
-                document.getElementById('recordBtn').textContent = '🎤 Start Recording';
-                document.getElementById('recordBtn').className = 'btn record-btn btn-success';
-                document.getElementById('recordingStatus').textContent = 'Recording stopped';
-            }
-        }
-
-        async function processRecordingContinuously() {
             if (!isRecording) return;
-
-            // Stop current recording and process
-            if (mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                
-                // Wait a bit then start new recording
-                setTimeout(async () => {
-                    if (isRecording) {
-                        audioChunks = [];
-                        mediaRecorder.start();
-                        setTimeout(() => processRecordingContinuously(), 2000);
-                    }
-                }, 100);
+            isRecording = false;
+            if (realtimeIntervalId) {
+                clearInterval(realtimeIntervalId);
+                realtimeIntervalId = null;
             }
+            if (realtimeProcessor) {
+                try { realtimeProcessor.disconnect(); } catch (e) {}
+                realtimeProcessor = null;
+            }
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop());
+                audioStream = null;
+            }
+            if (audioContext) {
+                audioContext.close().catch(() => {});
+                audioContext = null;
+            }
+            document.getElementById('recordBtn').textContent = '🎤 Start Recording';
+            document.getElementById('recordBtn').className = 'btn record-btn btn-success';
+            document.getElementById('recordingStatus').textContent = 'Recording stopped';
         }
 
-        async function processRealtimeAudio(audioBlob) {
+        function setRealtimeError(msg) {
+            const el = document.getElementById('realtimeError');
+            if (el) el.textContent = msg;
+        }
+
+        async function sendRealtimeChunk() {
+            if (!isRecording || !audioContext || realtimeSamples.length < MIN_SAMPLES_BEFORE_SEND) return;
+            const sr = audioContext.sampleRate;
+            const targetSamples = Math.floor(REALTIME_CHUNK_DURATION_SEC * sr);
+            const chunk = realtimeSamples.splice(0, targetSamples);
+            const float32 = new Float32Array(chunk);
+            const audio_base64 = float32ArrayToBase64(float32);
+
             try {
-                const formData = new FormData();
-                formData.append('file', audioBlob, 'recording.wav');
-
-                const response = await fetch(`${API_URL}/predict_audio`, {
+                const response = await fetch(`${API_URL}/predict_realtime`, {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ audio_base64, sample_rate: sr })
                 });
-
                 const data = await response.json();
-
                 if (data.success) {
                     updateRealtimeDisplay(data.prediction);
+                    setRealtimeError('');
+                } else {
+                    setRealtimeError(data.error || 'Prediction failed');
                 }
             } catch (error) {
                 console.error('Error processing audio:', error);
+                setRealtimeError('Network error: ' + (error.message || 'Could not reach server'));
             }
         }
 

@@ -156,7 +156,7 @@ export default function DualPitchDisplay({
       {/* Instructions */}
       {!isPlaying && (
         <div className="rounded-lg border border-border/50 bg-muted/50 p-4 text-sm text-muted-foreground">
-          <p className="font-semibold mb-2">How to use:</p>
+          <p className="font-semibold mb-2">How to Use:</p>
           <ol className="list-inside list-decimal space-y-1 text-xs">
             <li>Upload a song audio file</li>
             <li>Click the play button to start the song</li>

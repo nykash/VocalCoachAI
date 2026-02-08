@@ -69,7 +69,7 @@ export default function LyricsUploader({
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0"
-            title="Clear lyrics file"
+            title="Clear Lyrics File"
           >
             <X className="h-3 w-3" />
           </Button>

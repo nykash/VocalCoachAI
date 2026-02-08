@@ -1,0 +1,14 @@
+# Backend REST API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# VAE analysis (backend calls eda/predict_singer_vae)
+# Install from project root so eda is on PYTHONPATH, or add parent to path when running.
+torch>=2.0.0
+lightning>=2.0.0
+librosa>=0.10.0
+numpy>=1.20.0
+scikit-learn>=1.0.0
+
+# Vocal register (chest/head/falsetto) – same preprocessing as Head_Chest_Voice
+opencv-python-headless>=4.5.0

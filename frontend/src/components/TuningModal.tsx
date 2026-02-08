@@ -57,7 +57,7 @@ export default function TuningModal({
                   {accuracyScore}%
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  <p>Overall accuracy</p>
+                  <p>Overall Accuracy</p>
                   <p>Avg deviation: {overallAvgDeviation}&#162;</p>
                 </div>
               </div>
@@ -77,7 +77,7 @@ export default function TuningModal({
             {/* Note breakdown */}
             <div>
               <h4 className="text-sm font-semibold mb-2">
-                Notes detected ({totalDetections} total)
+                Notes Detected ({totalDetections} Total)
               </h4>
               <div className="space-y-1.5">
                 {notes.map(({ note, count, avgDeviation }) => {

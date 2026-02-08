@@ -7,10 +7,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import MicButton from "@/components/MicButton";
 import { useAudioAnalyser } from "@/hooks/useAudioAnalyser";
 import { usePitchDetection } from "@/hooks/usePitchDetection";
-import { fetchVaeTags, type VaeTagResult } from "@/lib/analysisApi";
+import { fetchVaeTags, isClipTooShortError, type VaeTagResult } from "@/lib/analysisApi";
 import { cn } from "@/lib/utils";
 
 /** Cents threshold: within this many cents of nearest note counts as "in tune" */
@@ -65,7 +66,8 @@ export default function SingStyleModal({ open, onOpenChange, onClose }: SingStyl
           const result = await fetchVaeTags(blob);
           setStyleTags(result);
         } catch (e) {
-          setTagsError(e instanceof Error ? e.message : "Failed to get style tags");
+          const msg = e instanceof Error ? e.message : "Failed to get style tags";
+          setTagsError(msg);
           setStyleTags(null);
         } finally {
           setTagsLoading(false);
@@ -156,7 +158,7 @@ export default function SingStyleModal({ open, onOpenChange, onClose }: SingStyl
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Sing style</DialogTitle>
+          <DialogTitle>Sing Style</DialogTitle>
           <DialogDescription>
             Free singing: we&apos;ll check your tuning and analyze your style (no song or lyrics).
           </DialogDescription>
@@ -245,14 +247,33 @@ export default function SingStyleModal({ open, onOpenChange, onClose }: SingStyl
           {/* Style tags (after stopping) */}
           {(styleTags || tagsLoading || tagsError) && (
             <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-              <h3 className="text-sm font-semibold">Style tags</h3>
+              <h3 className="text-sm font-semibold">Style Tags</h3>
               {tagsLoading && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   <span className="text-sm">Analyzing your recording…</span>
                 </div>
               )}
-              {tagsError && <p className="text-sm text-destructive">{tagsError}</p>}
+              {tagsError && (
+                isClipTooShortError(tagsError) ? (
+                  <div className="flex flex-col items-center gap-3 py-2">
+                    <p className="text-sm text-muted-foreground">Clip too short</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setTagsError(null);
+                        startListening();
+                      }}
+                    >
+                      Retake
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-destructive">{tagsError}</p>
+                )
+              )}
               {styleTags && !tagsLoading && (
                 <div className="space-y-3">
                   {styleTags.top_artist && (
