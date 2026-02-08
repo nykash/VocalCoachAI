@@ -169,6 +169,23 @@ export function useAudioAnalyser() {
     });
   }, [stopListening]);
 
+  /** Return a WAV Blob of everything recorded so far WITHOUT stopping the mic. */
+  const getRecordedBlob = useCallback((): Blob | null => {
+    const chunks = recorderChunksRef.current;
+    const ctx = audioContextRef.current;
+    if (!chunks.length || !ctx) return null;
+    const sr = ctx.sampleRate;
+    const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+    if (totalLength === 0) return null;
+    const merged = new Float32Array(totalLength);
+    let off = 0;
+    for (const c of chunks) {
+      merged.set(c, off);
+      off += c.length;
+    }
+    return float32ToWavBlob(merged, sr);
+  }, []);
+
   const toggleListening = useCallback(() => {
     if (isListening) {
       stopListening();
@@ -198,5 +215,6 @@ export function useAudioAnalyser() {
     startListening,
     stopListening,
     stopListeningAndGetRecordedBlob,
+    getRecordedBlob,
   };
 }

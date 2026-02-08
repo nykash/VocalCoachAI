@@ -19,10 +19,11 @@ const Index = () => {
     error,
     toggleListening,
     togglePause,
+    getRecordedBlob,
   } = useAudioAnalyser();
 
   const { result: pitchResult } = usePitchDetection(analyserNode, isListening, isPaused);
-  const { formatContext } = usePitchHistory(isListening ? pitchResult : null);
+  const { formatContext, getHistorySummary } = usePitchHistory(isListening ? pitchResult : null);
 
   const [ampScale, setAmpScale] = useState(0.02);
   const [showMode, setShowMode] = useState<"audio" | "freq" | "both">("both");
@@ -105,7 +106,12 @@ const Index = () => {
       </div>
 
       {/* Chat Panel — floating button + side drawer */}
-      <ChatPanel pitchContext={formatContext()} isListening={isListening} />
+      <ChatPanel
+        pitchContext={formatContext()}
+        isListening={isListening}
+        getHistorySummary={getHistorySummary}
+        getRecordedBlob={getRecordedBlob}
+      />
     </div>
   );
 };
