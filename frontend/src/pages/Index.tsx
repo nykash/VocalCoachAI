@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import FrequencySpectrum from "@/components/FrequencySpectrum";
 import WaveformDisplay from "@/components/WaveformDisplay";
 import NoteDetector from "@/components/NoteDetector";
 import AnalyzerControls from "@/components/AnalyzerControls";
 import { useAudioAnalyser } from "@/hooks/useAudioAnalyser";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const {
@@ -21,10 +23,17 @@ const Index = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background px-4 py-6">
-      {/* Header */}
-      <h1 className="mb-4 text-xl font-bold text-destructive tracking-wide">
-        Microphone Sound Analyzer
-      </h1>
+      {/* Header with Navigation */}
+      <div className="w-full max-w-4xl mb-6 flex justify-between items-center">
+        <h1 className="text-xl font-bold text-destructive tracking-wide">
+          Microphone Sound Analyzer
+        </h1>
+        <Link to="/sing-along">
+          <Button variant="outline" size="sm">
+            Sing Along
+          </Button>
+        </Link>
+      </div>
 
       {/* Main container */}
       <div className="w-full max-w-4xl">

@@ -38,18 +38,36 @@ export function detectPitch(
   sampleRate: number,
 ): PitchResult | null {
   const n = buffer.length;
+  // Normalize audio
+  let maxAmp = 0;
+  for (let i = 0; i < n; i++) {
+    maxAmp = Math.max(maxAmp, Math.abs(buffer[i]));
+  }
+  if (maxAmp < 1e-10) return null;
+
+  const normalized = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    normalized[i] = buffer[i] / maxAmp;
+  }
 
   // RMS gate — skip if signal is too quiet
   let rms = 0;
   for (let i = 0; i < n; i++) {
-    rms += buffer[i] * buffer[i];
+    rms += normalized[i] * normalized[i];
   }
   rms = Math.sqrt(rms / n);
-  if (rms < 0.01) return null;
+  if (rms < 0.003) return null; // Even lower threshold for maximum sensitivity
 
-  // Autocorrelation over lag range for 80–1100 Hz
-  const minLag = Math.floor(sampleRate / 1100);
-  const maxLag = Math.ceil(sampleRate / 80);
+  // Pre-emphasis filter to amplify high frequencies (helps with clarity)
+  const emphasized = new Float32Array(n);
+  emphasized[0] = normalized[0];
+  for (let i = 1; i < n; i++) {
+    emphasized[i] = normalized[i] - 0.97 * normalized[i - 1];
+  }
+
+  // Autocorrelation over lag range for 70–500 Hz (broader range for voices)
+  const minLag = Math.floor(sampleRate / 500);
+  const maxLag = Math.ceil(sampleRate / 70);
 
   // Normalized autocorrelation
   const correlations = new Float32Array(maxLag + 1);
@@ -58,9 +76,11 @@ export function detectPitch(
     let sumSq1 = 0;
     let sumSq2 = 0;
     for (let i = 0; i < n - lag; i++) {
-      sum += buffer[i] * buffer[i + lag];
-      sumSq1 += buffer[i] * buffer[i];
-      sumSq2 += buffer[i + lag] * buffer[i + lag];
+      const s1 = emphasized[i];
+      const s2 = emphasized[i + lag];
+      sum += s1 * s2;
+      sumSq1 += s1 * s1;
+      sumSq2 += s2 * s2;
     }
     const denom = Math.sqrt(sumSq1 * sumSq2);
     correlations[lag] = denom > 0 ? sum / denom : 0;
@@ -76,8 +96,8 @@ export function detectPitch(
     }
   }
 
-  // Clarity gate — reject noisy / non-tonal signals
-  if (bestCorr < 0.8) return null;
+  // Lowered clarity threshold for breathy/softer voices - be very permissive
+  if (bestCorr < 0.4) return null;
 
   // Parabolic interpolation for sub-sample accuracy
   let refinedLag = bestLag;
@@ -85,13 +105,20 @@ export function detectPitch(
     const y0 = correlations[bestLag - 1];
     const y1 = correlations[bestLag];
     const y2 = correlations[bestLag + 1];
-    const shift = (y0 - y2) / (2 * (y0 - 2 * y1 + y2));
-    if (Math.abs(shift) < 1) {
-      refinedLag = bestLag + shift;
+    const denom = y0 - 2 * y1 + y2;
+    if (Math.abs(denom) > 1e-10) {
+      const shift = (y0 - y2) / (2 * denom);
+      if (Math.abs(shift) < 1) {
+        refinedLag = bestLag + shift;
+      }
     }
   }
 
   const frequency = sampleRate / refinedLag;
+  
+  // Validate frequency is in reasonable human voice range
+  if (frequency < 70 || frequency > 500) return null;
+
   const note = frequencyToNote(frequency);
 
   return {
