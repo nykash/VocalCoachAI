@@ -4,7 +4,10 @@ import FrequencySpectrum from "@/components/FrequencySpectrum";
 import WaveformDisplay from "@/components/WaveformDisplay";
 import NoteDetector from "@/components/NoteDetector";
 import AnalyzerControls from "@/components/AnalyzerControls";
+import ChatPanel from "@/components/ChatPanel";
 import { useAudioAnalyser } from "@/hooks/useAudioAnalyser";
+import { usePitchDetection } from "@/hooks/usePitchDetection";
+import { usePitchHistory } from "@/hooks/usePitchHistory";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
@@ -16,7 +19,11 @@ const Index = () => {
     error,
     toggleListening,
     togglePause,
+    getRecordedBlob,
   } = useAudioAnalyser();
+
+  const { result: pitchResult } = usePitchDetection(analyserNode, isListening, isPaused);
+  const { formatContext, getHistorySummary } = usePitchHistory(isListening ? pitchResult : null);
 
   const [ampScale, setAmpScale] = useState(0.02);
   const [showMode, setShowMode] = useState<"audio" | "freq" | "both">("both");
@@ -97,6 +104,14 @@ const Index = () => {
           </p>
         )}
       </div>
+
+      {/* Chat Panel — floating button + side drawer */}
+      <ChatPanel
+        pitchContext={formatContext()}
+        isListening={isListening}
+        getHistorySummary={getHistorySummary}
+        getRecordedBlob={getRecordedBlob}
+      />
     </div>
   );
 };
