@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Play, Pause, Square } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Play, Pause, Square, Loader2 } from "lucide-react";
 import AudioUploader from "@/components/AudioUploader";
 import LyricsUploader from "@/components/LyricsUploader";
 import PitchGraphDisplay from "@/components/PitchGraphDisplay";
@@ -10,19 +10,47 @@ import { useSongAnalyser } from "@/hooks/useSongAnalyser";
 import { usePitchDetection } from "@/hooks/usePitchDetection";
 import { Slider } from "@/components/ui/slider";
 import LyricsPanel from "@/components/LyricsPanel";
+import { fetchVaeTags, type VaeTagResult } from "@/lib/analysisApi";
 
 const SingAlong = () => {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [lyricsFile, setLyricsFile] = useState<File | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [singingTags, setSingingTags] = useState<VaeTagResult | null>(null);
+  const [tagsLoading, setTagsLoading] = useState(false);
+  const [tagsError, setTagsError] = useState<string | null>(null);
 
   const {
     isListening,
     isPaused,
     analyserNode,
     error: micError,
-    toggleListening,
+    startListening,
+    stopListeningAndGetRecordedBlob,
   } = useAudioAnalyser();
+
+  const handleMicToggle = useCallback(async () => {
+    if (isListening) {
+      const blob = await stopListeningAndGetRecordedBlob();
+      if (blob && blob.size > 0) {
+        setTagsError(null);
+        setTagsLoading(true);
+        try {
+          const result = await fetchVaeTags(blob);
+          setSingingTags(result);
+        } catch (e) {
+          setTagsError(e instanceof Error ? e.message : "Failed to get singing tags");
+          setSingingTags(null);
+        } finally {
+          setTagsLoading(false);
+        }
+      }
+    } else {
+      setSingingTags(null);
+      setTagsError(null);
+      startListening();
+    }
+  }, [isListening, startListening, stopListeningAndGetRecordedBlob]);
 
   const { songPitch, currentTime, duration, play, pause, stop, seek } =
     useSongAnalyser(audioFile, isPlaying);
@@ -172,8 +200,49 @@ const SingAlong = () => {
             </div>
             <MicButton
               isListening={isListening}
-              onToggle={toggleListening}
+              onToggle={handleMicToggle}
             />
+          </div>
+        )}
+
+        {/* Singing tags (shown after mic is paused and backend returns analysis) */}
+        {audioFile && (singingTags || tagsLoading || tagsError) && (
+          <div className="rounded-lg border border-border bg-card p-6 space-y-3">
+            <h3 className="font-semibold text-foreground">Singing style tags</h3>
+            {tagsLoading && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Analyzing your recording…</span>
+              </div>
+            )}
+            {tagsError && (
+              <p className="text-sm text-destructive">{tagsError}</p>
+            )}
+            {singingTags && !tagsLoading && (
+              <div className="space-y-3">
+                {singingTags.top_artist && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Closest match</p>
+                    <p className="font-medium text-foreground">{singingTags.top_artist}</p>
+                  </div>
+                )}
+                {singingTags.top_3_attributes.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Top style tags</p>
+                    <div className="flex flex-wrap gap-2">
+                      {singingTags.top_3_attributes.map(({ tag, confidence }) => (
+                        <span
+                          key={tag}
+                          className="rounded-full bg-primary/15 px-3 py-1 text-sm font-medium text-primary"
+                        >
+                          {tag} ({(confidence * 100).toFixed(0)}%)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
