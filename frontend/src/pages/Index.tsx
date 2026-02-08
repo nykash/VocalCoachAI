@@ -298,7 +298,7 @@ const Index = () => {
       {/* Left sidebar: fixed height, scrolls independently of main content */}
       <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-card/40 py-6 pl-5 pr-5">
         <h2 className="mb-3 text-center text-xl font-bold text-foreground">
-          Vocal Coach AI
+          Sing Your Heart Out
         </h2>
         <div className="mb-4 rounded-xl px-4 py-3 text-sm font-medium bg-muted/80 text-muted-foreground">
           <p className="text-xs font-semibold uppercase tracking-wider mb-1.5">

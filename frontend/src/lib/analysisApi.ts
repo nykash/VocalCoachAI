@@ -12,8 +12,6 @@ export interface VaeTagResult {
   attributes: { tag: string; confidence: number }[];
   top_3_attributes: { tag: string; confidence: number }[];
   n_chunks: number;
-  /** Breathiness 0–100 from spectral flatness (higher = more breathy). */
-  breathiness?: number;
 }
 
 export async function fetchVaeTags(audioBlob: Blob, temperature = 5): Promise<VaeTagResult> {

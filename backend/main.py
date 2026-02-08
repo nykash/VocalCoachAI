@@ -5,7 +5,6 @@ Serves song list and files from eda/data for karaoke.
 Run from project root: uvicorn backend.main:app --reload
 Or: python -m uvicorn backend.main:app --reload
 """
-import io
 import os
 import sys
 
@@ -176,18 +175,6 @@ async def analyze_vae_tags(
 
     if "error" in result:
         raise HTTPException(status_code=422, detail=result["error"])
-
-    # Add breathiness metric (0–100) from spectral flatness; higher = more breathy
-    try:
-        import numpy as np
-        import librosa
-        y, sr = librosa.load(io.BytesIO(audio_bytes), sr=None, mono=True)
-        flatness = librosa.feature.spectral_flatness(y=y)
-        flatness_median = float(np.median(flatness))
-        breathiness = min(100.0, max(0.0, flatness_median * 100.0))
-        result["breathiness"] = round(breathiness, 1)
-    except Exception:
-        pass  # leave result unchanged if breathiness computation fails
 
     return result
 

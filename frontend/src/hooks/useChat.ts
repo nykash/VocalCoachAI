@@ -30,8 +30,6 @@ export function formatStyleResultForLLM(result: VaeTagResult): string {
       .join(", ");
     parts.push(`Style attributes: ${attrs}`);
   }
-  if (result.breathiness != null)
-    parts.push(`Breathiness: ${result.breathiness} (0–100, higher = more breathy)`);
   return parts.length ? parts.join(". ") : "No style data.";
 }
 
