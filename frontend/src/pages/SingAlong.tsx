@@ -217,6 +217,7 @@ const SingAlong = () => {
           </div>
         )}
       </div>
+
     </div>
   );
 };
