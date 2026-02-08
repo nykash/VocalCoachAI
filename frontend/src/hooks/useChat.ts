@@ -370,7 +370,7 @@ export function useChat(options: UseChatOptions = {}) {
         ...apiMessages,
         {
           role: "user" as const,
-          content: `Style analysis result: ${toolResultText}\n\n${getExerciseInstructionsForPrompt()}\n\nUsing the conversation above, reply to what the user actually asked. Respond with a JSON object containing only: {"final_message": "your reply in 1-2 sentences"}. If they asked who they sound like or for their vocal twin, mention the closest artist. If they asked for an exercise and then style analysis, give the exercise and briefly include the style result. Match your reply to their request. No other text.`,
+          content: `Style analysis result: ${toolResultText}\n\n${getExerciseInstructionsForPrompt()}\n\nUsing the conversation above, reply to what the user actually asked. Respond with a JSON object containing only: {"final_message": "your reply in 1-2 sentences"}. If they asked who they sound like or for their vocal twin, mention the closest artist. If they asked for an exercise and then style analysis, give the exercise and briefly include the style result. Match your reply to their request. No other text. Answer the question the user gave you earlier in a friendly and constructive way using the information you received, and evaluate them on the excersize`,
         },
       ];
       setIsLoading(true);
