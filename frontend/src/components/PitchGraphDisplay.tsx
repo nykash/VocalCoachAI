@@ -176,25 +176,31 @@ const PitchGraphDisplay = ({
     ctx.lineTo(width - padding, padding + graphHeight);
     ctx.stroke();
 
-    // Draw target pitch line (song)
+    // Draw target pitch line (song) — use 7-point MA for stable "ground truth"
     if (targetHistoryRef.current.length > 0) {
-      // Smooth the target series a little
       const raw = targetHistoryRef.current;
       const L = raw.length;
       const spacing = graphWidth / Math.max(1, maxHistory - 1);
+      const halfWin = 3; // 7-point window
 
       ctx.strokeStyle = "rgb(59, 130, 246)"; // blue
       ctx.lineWidth = 3;
       ctx.beginPath();
 
       for (let i = 0; i < L; i++) {
-        // simple 3-point moving average
-        const prev = raw[Math.max(0, i - 1)];
-        const curr = raw[i];
-        const next = raw[Math.min(L - 1, i + 1)];
-        let freq = (prev + curr + next) / 3;
-        if (!isFinite(freq)) freq = curr;
-        // clamp
+        let sum = 0;
+        let count = 0;
+        for (let j = i - halfWin; j <= i + halfWin; j++) {
+          if (j >= 0 && j < L) {
+            const v = raw[j];
+            if (isFinite(v)) {
+              sum += v;
+              count++;
+            }
+          }
+        }
+        let freq = count > 0 ? sum / count : raw[i];
+        if (!isFinite(freq)) freq = raw[i];
         freq = Math.max(minFreq, Math.min(maxFreq, freq));
 
         const x = padding + spacing * (maxHistory - L + i);

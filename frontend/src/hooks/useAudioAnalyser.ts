@@ -78,6 +78,8 @@ export function useAudioAnalyser() {
 
       scriptProcessor.onaudioprocess = (e) => {
         const input = e.inputBuffer.getChannelData(0);
+        const output = e.outputBuffer.getChannelData(0);
+        output.set(input); // pass through to analyser (otherwise analyser gets silence)
         recorderChunksRef.current.push(new Float32Array(input));
       };
       source.connect(scriptProcessor);

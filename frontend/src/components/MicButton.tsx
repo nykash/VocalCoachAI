@@ -4,9 +4,13 @@ import { Button } from "@/components/ui/button";
 interface MicButtonProps {
   isListening: boolean;
   onToggle: () => void;
+  /** When not listening, show this label on the button (e.g. "Retake") */
+  idleLabel?: string;
 }
 
-const MicButton = ({ isListening, onToggle }: MicButtonProps) => {
+const MicButton = ({ isListening, onToggle, idleLabel }: MicButtonProps) => {
+  const showLabel = !isListening && idleLabel;
+
   return (
     <div className="relative">
       {/* Animated rings when listening */}
@@ -21,8 +25,9 @@ const MicButton = ({ isListening, onToggle }: MicButtonProps) => {
         onClick={onToggle}
         size="lg"
         className={`
-          relative z-10 h-20 w-20 rounded-full text-primary-foreground
+          relative z-10 text-primary-foreground
           transition-all duration-300 shadow-lg
+          ${showLabel ? "h-12 gap-2 rounded-full px-5" : "h-20 w-20 rounded-full"}
           ${isListening
             ? "bg-primary hover:bg-primary/90 scale-110 glow-primary"
             : "bg-muted-foreground/20 hover:bg-primary/80 text-foreground hover:text-primary-foreground"
@@ -31,6 +36,11 @@ const MicButton = ({ isListening, onToggle }: MicButtonProps) => {
       >
         {isListening ? (
           <MicOff className="h-8 w-8" />
+        ) : showLabel ? (
+          <>
+            <Mic className="h-5 w-5" />
+            {idleLabel}
+          </>
         ) : (
           <Mic className="h-8 w-8" />
         )}

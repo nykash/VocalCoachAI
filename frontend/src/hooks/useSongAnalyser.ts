@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { detectPitch, type PitchResult } from "@/lib/pitchDetection";
+import { detectPitch, frequencyToNote, type PitchResult } from "@/lib/pitchDetection";
+
+/** EMA alpha for smoothing song pitch (lower = more stable, less responsive). */
+const SONG_PITCH_SMOOTHING_ALPHA = 0.2;
 
 export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
   const [songPitch, setSongPitch] = useState<PitchResult | null>(null);
@@ -16,6 +19,7 @@ export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
   const missCountRef = useRef(0);
   const lastSuccessfulPitchRef = useRef<PitchResult | null>(null);
   const pitchHistoryRef = useRef<PitchResult[]>([]);
+  const smoothedFreqRef = useRef<number | null>(null);
 
   const initializeAudio = useCallback(async () => {
     if (!audioFile) return;
@@ -135,14 +139,32 @@ export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
           } else {
             prevNoteRef.current = noteKey;
             matchCountRef.current = 1;
+            // When note changes, snap smoothed freq toward new note so we don't lag
+            if (smoothedFreqRef.current !== null) {
+              const semis = 12 * Math.log2(pitch.frequency / smoothedFreqRef.current);
+              if (Math.abs(semis) >= 0.5) smoothedFreqRef.current = pitch.frequency;
+            }
           }
 
           // require two consistent frames before accepting
           if (matchCountRef.current >= 2) {
-            setSongPitch(pitch);
-            lastSuccessfulPitchRef.current = pitch;
-            pitchHistoryRef.current.push(pitch);
-            // Keep last 300 pitches for smoothing
+            const alpha = SONG_PITCH_SMOOTHING_ALPHA;
+            const rawFreq = pitch.frequency;
+            if (smoothedFreqRef.current === null) {
+              smoothedFreqRef.current = rawFreq;
+            } else {
+              smoothedFreqRef.current = alpha * smoothedFreqRef.current + (1 - alpha) * rawFreq;
+            }
+            const freq = smoothedFreqRef.current;
+            const note = frequencyToNote(freq);
+            const smoothed: PitchResult = {
+              frequency: freq,
+              clarity: pitch.clarity,
+              ...note,
+            };
+            setSongPitch(smoothed);
+            lastSuccessfulPitchRef.current = smoothed;
+            pitchHistoryRef.current.push(smoothed);
             if (pitchHistoryRef.current.length > 300) {
               pitchHistoryRef.current.shift();
             }
@@ -156,6 +178,7 @@ export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
         matchCountRef.current = 0;
         missCountRef.current = 0;
         pitchHistoryRef.current = [];
+        smoothedFreqRef.current = null;
       }
 
       animationRef.current = requestAnimationFrame(update);
