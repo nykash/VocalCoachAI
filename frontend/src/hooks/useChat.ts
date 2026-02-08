@@ -189,25 +189,13 @@ export function useChat(options: UseChatOptions = {}) {
                 ...apiMessages,
                 {
                   role: "system" as const,
-                  content: `Style analysis result: ${toolResultText}\n\n${getExerciseInstructionsForPrompt()}\n\nUsing the conversation above, reply to what the user actually asked. Respond with a JSON object containing only final_message as a key and your reply as the value. Answer the question the user previously asked that we could not directly answer without the style analysis. DON'T just blindly repeat the results, make sure you answer the question the user asked but cite numbers and details that are relevant to the question! If they asked how to do something though, you should always give them feedback after listening to the recording and then give potentially more instructions on how to do it. Then suggest adding an excersize if applicable as a tool call! Make sure to end the message by asking if the user would like to add the excersize to their list or for you to suggest another exercise. Always start with responding to the audio the user sent and then give them feedback and suggestions based on that afterwards.`,
-                },
-                {
-                  role: "user" as const,
-                  content: `The user asked: "${text}". You called show_style_modal and got the style analysis result. Answer their question directly with helpful vocal advice (2-4 sentences). Do not say "vocal twin" or "turn on your mic" as the main reply unless they asked who they sound like. If they asked for technique (e.g. less breathy, brighter), give concrete tips. Plain text only, no JSON. Consider suggesting an excersize if applicable to add to the user's list.`,
-                },
-              ];
-              console.log('input messages', [
-                ...apiMessages,
-                {
-                  role: "system" as const,
                   content: `Style analysis result: ${toolResultText}\n\n${getExerciseInstructionsForPrompt()}\n\nUsing the conversation above, reply to what the user actually asked. Respond with a JSON object containing only final_message as a key and your reply as the value. Answer the question the user previously asked that we could not directly answer without the style analysis. DON'T just blindly repeat the results, make sure you answer the questiont the user asked! Then suggest adding an excersize if applicable as a tool call!`,
                 },
                 {
                   role: "user" as const,
                   content: `The user asked: "${text}". You called show_style_modal and got the style analysis result. Answer their question directly with helpful vocal advice (2-4 sentences). Do not say "vocal twin" or "turn on your mic" as the main reply unless they asked who they sound like. If they asked for technique (e.g. less breathy, brighter), give concrete tips. Plain text only, no JSON. Consider suggesting an excersize if applicable to add to the user's list.`,
                 },
-              ]);
-              console.log("followUpMessages", followUpMessages);
+              ];
               const followUp = await sendChatMessage(followUpMessages, pitchContext);
               applySuggestExercises(followUp, setSuggestedExercises);
               const raw =
@@ -371,27 +359,18 @@ export function useChat(options: UseChatOptions = {}) {
 
   /** Call after the style modal is closed with a result so the LLM can answer with that data. */
   const submitStyleResultForReply = useCallback(
-    async (
-      result: VaeTagResult,
-      pitchContext: string,
-      pitchSummary?: PitchHistorySummary | null
-    ) => {
+    async (result: VaeTagResult, pitchContext: string) => {
       const current = messagesRef.current;
       const apiMessages: ChatMessage[] = current.map((m) => ({
         role: m.role,
         content: m.content,
       }));
-      const styleText = formatStyleResultForLLM(result);
-      const pitchText = formatPitchSummaryForLLM(pitchSummary ?? null);
-      const toolResultText =
-        pitchText && pitchText !== "No pitch data."
-          ? `Style analysis: ${styleText}. Pitch correctness (from recording): ${pitchText}`
-          : `Style analysis: ${styleText}`;
+      const toolResultText = formatStyleResultForLLM(result);
       const followUpMessages: ChatMessage[] = [
         ...apiMessages,
         {
           role: "user" as const,
-          content: `Style analysis result: ${toolResultText}\n\n${getExerciseInstructionsForPrompt()}\n\nUsing the conversation above, reply to what the user actually asked. Respond with a JSON object containing only: {"final_message": "your reply in 1-2 sentences"}. If they asked who they sound like or for their vocal twin, mention the closest artist. If they asked for an exercise and then style analysis, give the exercise and briefly include the style result. When pitch data is present, you may mention intonation or pitch accuracy. Match your reply to their request. No other text.`,
+          content: `Style analysis result: ${toolResultText}\n\n${getExerciseInstructionsForPrompt()}\n\nUsing the conversation above, reply to what the user actually asked. Respond with a JSON object containing only: {"final_message": "your reply in 1-2 sentences"}. If they asked who they sound like or for their vocal twin, mention the closest artist. If they asked for an exercise and then style analysis, give the exercise and briefly include the style result. Match your reply to their request. No other text.`,
         },
       ];
       setIsLoading(true);

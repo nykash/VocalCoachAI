@@ -22,8 +22,6 @@ interface StyleModalProps {
   getRecordedBlob: () => Blob | null;
   /** When set, modal shows exercise-specific title and instructions (e.g. from an exercise card). */
   exerciseName?: string | null;
-  /** When set (e.g. from chatbot), modal title is "Instructions" and this is the body content. */
-  instructionsContent?: string | null;
   /** Called when the modal is closed; if the user got a result, it is passed with optional pitch summary from the same recording. */
   onCloseWithResult?: (result: VaeTagResult | null, pitchSummary?: PitchHistorySummary | null) => void;
 }
@@ -33,7 +31,6 @@ export default function StyleModal({
   onOpenChange,
   getRecordedBlob,
   exerciseName = null,
-  instructionsContent = null,
   onCloseWithResult,
 }: StyleModalProps) {
   const [result, setResult] = useState<VaeTagResult | null>(null);
@@ -121,9 +118,9 @@ export default function StyleModal({
       const p = detectPitch(slice, ctx.sampleRate);
       if (p) pitchResults.push(p);
     }
-    const summary =
-      pitchResults.length > 0 ? buildPitchSummaryFromResults(pitchResults) : null;
-    setPitchSummary(summary);
+    setPitchSummary(
+      pitchResults.length > 0 ? buildPitchSummaryFromResults(pitchResults) : null
+    );
     const blob = float32ToWavBlob(merged, ctx.sampleRate);
     setLoading(true);
     setError(null);
@@ -132,8 +129,6 @@ export default function StyleModal({
     try {
       const r = await fetchVaeTags(blob);
       setResult(r);
-      onCloseWithResult?.(r, summary);
-      onOpenChange(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Style analysis failed";
       if (isClipTooShortError(msg)) {
@@ -145,7 +140,7 @@ export default function StyleModal({
     } finally {
       setLoading(false);
     }
-  }, [stopRecording, onCloseWithResult, onOpenChange]);
+  }, [stopRecording]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -181,8 +176,6 @@ export default function StyleModal({
       .then((r) => {
         setResult(r);
         setClipTooShort(false);
-        onCloseWithResult?.(r, null);
-        onOpenChange(false);
       })
       .catch((e) => {
         const msg = e instanceof Error ? e.message : "Style analysis failed";
@@ -194,25 +187,19 @@ export default function StyleModal({
         }
       })
       .finally(() => setLoading(false));
-  }, [open, getRecordedBlob, stopRecording, onCloseWithResult, onOpenChange]);
+  }, [open, getRecordedBlob, stopRecording]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {exerciseName
-              ? `Record: ${exerciseName}`
-              : instructionsContent
-                ? "Instructions"
-                : "Singing Style Analysis"}
+            {exerciseName ? `Record: ${exerciseName}` : "Singing Style Analysis"}
           </DialogTitle>
           <DialogDescription>
             {exerciseName
               ? "Read the instructions below before recording."
-              : instructionsContent
-                ? "Read below before recording."
-                : "Vocal style analysis from your recorded audio."}
+              : "Vocal style analysis from your recorded audio."}
           </DialogDescription>
         </DialogHeader>
 
@@ -221,14 +208,6 @@ export default function StyleModal({
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Instructions</p>
             <p className="text-sm text-foreground whitespace-pre-wrap">
               {EXERCISE_INSTRUCTIONS[exerciseName] ?? DEFAULT_INSTRUCTION}
-            </p>
-          </div>
-        )}
-
-        {!exerciseName && instructionsContent && (
-          <div className="rounded-lg border border-border/60 bg-muted/30 p-3 max-h-[200px] overflow-y-auto">
-            <p className="text-sm text-foreground whitespace-pre-wrap">
-              {instructionsContent}
             </p>
           </div>
         )}
@@ -292,6 +271,47 @@ export default function StyleModal({
 
         {error && !loading && !noExternalBlob && !clipTooShort && (
           <p className="text-sm text-destructive">{error}</p>
+        )}
+
+        {result && !loading && (
+          <div className="space-y-4">
+            {result.top_artist && (
+              <div>
+                <p className="text-xs text-muted-foreground">Closest Artist Match</p>
+                <p className="text-lg font-semibold">{result.top_artist}</p>
+              </div>
+            )}
+            {result.top_3_artists.length > 1 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Similar Artists</p>
+                <div className="flex flex-wrap gap-2">
+                  {result.top_3_artists.map((artist) => (
+                    <span
+                      key={artist}
+                      className="rounded-full border px-3 py-1 text-sm"
+                    >
+                      {artist}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {result.top_3_attributes.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Style Tags</p>
+                <div className="flex flex-wrap gap-2">
+                  {result.top_3_attributes.map(({ tag, confidence }) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-primary/15 px-3 py-1 text-sm font-medium text-primary"
+                    >
+                      {tag} ({(confidence * 100).toFixed(0)}%)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>

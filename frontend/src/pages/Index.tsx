@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SlidersHorizontal, Gauge, Music, Search, Loader2, Mic, Music2, Radio, Plus } from "lucide-react";
 import { useTuneMeModal } from "@/contexts/TuneMeModalContext";
 import { useVocalRangeModal } from "@/contexts/VocalRangeModalContext";
@@ -176,13 +176,6 @@ const Index = () => {
   /** Last grade per exercise name (for card display when opened from card, not chat) */
   const [exerciseScores, setExerciseScores] = useState<Record<string, number>>({});
   const chatScrollBottomRef = useRef<HTMLDivElement>(null);
-
-  const lastAssistantMessage = useMemo(() => {
-    const m = [...messages].reverse().find((msg) => msg.role === "assistant");
-    const raw = (m?.content ?? "").trim();
-    const content = stripFnCallFromDisplay(raw);
-    return content || undefined;
-  }, [messages]);
 
   useEffect(() => {
     chatScrollBottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -551,7 +544,7 @@ const Index = () => {
                 >
                   {hasScore && (
                     <span className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-                      {score}%
+                      {score}
                     </span>
                   )}
                   <CardIcon className="h-10 w-10 shrink-0 text-primary/80" aria-hidden />
@@ -562,7 +555,7 @@ const Index = () => {
                     {gradeLoading && gradingExercise === label
                       ? "Grading…"
                       : hasScore
-                        ? "Try again"
+                        ? `${score} / 100`
                         : "Start"}
                   </span>
                 </button>
@@ -587,7 +580,6 @@ const Index = () => {
         }}
         getRecordedBlob={() => null}
         exerciseName={exerciseForStyleModal}
-        instructionsContent={exerciseForStyleModal ? undefined : lastAssistantMessage}
         onCloseWithResult={(result, pitchSummaryFromModal) => {
           if (result) {
             setLastStyleResult(result);
@@ -599,8 +591,8 @@ const Index = () => {
                 pitchSummaryFromModal ?? lastPitchSummary
               );
             } else {
-              // From chat (e.g. "analyze my style"): send result to chat with pitch from recording when available
-              submitStyleResultForReply(result, "", pitchSummaryFromModal ?? undefined);
+              // From chat (e.g. "analyze my style"): send result to chat
+              submitStyleResultForReply(result, "");
             }
             if (pitchSummaryFromModal != null) setLastPitchSummary(pitchSummaryFromModal);
           }

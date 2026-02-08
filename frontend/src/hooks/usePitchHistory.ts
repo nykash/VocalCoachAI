@@ -103,7 +103,7 @@ export function usePitchHistory(pitchResult: PitchResult | null) {
 
   const formatContext = useCallback((): string => {
     const lines: string[] = [
-      "You are a singing coach assistant. The user is practicing singing. Here is their real-time pitch data:",
+      "You are an enthusiastic, supportive singing coach. The user is practicing singing. Your job is to help them get better: explain in plain language (avoid jargon, or briefly define it), be encouraging, and give actionable feedback. Here is their real-time pitch data:",
       "",
     ];
 
@@ -151,7 +151,7 @@ export function usePitchHistory(pitchResult: PitchResult | null) {
     }
 
     lines.push(
-      "Use this data to provide helpful, encouraging feedback about their singing technique, pitch accuracy, and suggestions for improvement.",
+      "Use this data to give warm, encouraging feedback. Focus on what will help them improve: explain pitch and tuning in simple terms, celebrate what they are doing well, and suggest one or two concrete next steps. Keep language clear and avoid jargon.",
       "",
       "You have two tools available:",
       "- show_tuning_modal: Call this when the user asks about their tuning, pitch, or intonation.",

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { MessageCircle, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,13 +36,6 @@ export default function ChatPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tuningOpen, setTuningOpen] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
-
-  const lastAssistantMessage = useMemo(() => {
-    const m = [...messages].reverse().find((msg) => msg.role === "assistant");
-    const raw = (m?.content ?? "").trim();
-    const content = stripFnCallFromDisplay(raw);
-    return content || undefined;
-  }, [messages]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -172,9 +165,8 @@ export default function ChatPanel({
         open={styleOpen}
         onOpenChange={setStyleOpen}
         getRecordedBlob={getRecordedBlob}
-        instructionsContent={lastAssistantMessage}
-        onCloseWithResult={(result, pitchSummary) => {
-          if (result) submitStyleResultForReply(result, pitchContext, pitchSummary ?? undefined);
+        onCloseWithResult={(result) => {
+          if (result) submitStyleResultForReply(result, pitchContext);
         }}
       />
     </>
