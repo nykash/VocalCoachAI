@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Singer — Vocal similarity & tags</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      background: #0c0b0f;
+      color: #e8e4ed;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      letter-spacing: 0.02em;
+    }
+    .sub {
+      font-size: 0.85rem;
+      color: #8b8499;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 480px;
+    }
+    .mel-wrap {
+      width: 100%;
+      height: 140px;
+      background: #121118;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    #melCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .btn {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-mic {
+      background: linear-gradient(135deg, #7c3aed, #5b21b6);
+      color: white;
+    }
+    .btn-mic:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4); }
+    .btn-mic.stop { background: linear-gradient(135deg, #64748b, #475569); }
+    .btn-analyze {
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      color: white;
+    }
+    .btn-analyze:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(14, 165, 233, 0.4); }
+    .status {
+      font-size: 0.85rem;
+      color: #8b8499;
+      min-height: 1.4em;
+      margin-bottom: 1rem;
+    }
+    .status.listening { color: #a78bfa; }
+    .status.analyzing { color: #38bdf8; }
+    .error { color: #f87171; }
+    .result {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 1rem;
+    }
+    .result h3 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8b8499;
+      margin: 0 0 0.5rem 0;
+    }
+    .top-artist {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #c4b5fd;
+      margin-bottom: 0.5rem;
+    }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+    }
+    .tag {
+      padding: 0.25rem 0.6rem;
+      font-size: 0.8rem;
+      background: rgba(124, 58, 237, 0.25);
+      border: 1px solid rgba(124, 58, 237, 0.4);
+      border-radius: 999px;
+      color: #c4b5fd;
+    }
+    .tag .pct { opacity: 0.85; font-size: 0.75em; margin-left: 0.2em; }
+    .artist-list {
+      font-size: 0.8rem;
+      color: #a8a3b3;
+      margin-top: 0.75rem;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .artist-list span { display: block; margin: 0.2rem 0; }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <h1>Live Singer</h1>
+  <p class="sub">Sing into the mic — see live mel and get vocal similarity tags</p>
+  <div class="card">
+    <div class="mel-wrap">
+      <canvas id="melCanvas"></canvas>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-mic" id="btnMic" type="button">Start mic</button>
+      <button class="btn btn-analyze" id="btnAnalyze" type="button" disabled>Analyze</button>
+    </div>
+    <p class="status" id="status">Start the microphone, then click Analyze to get artist and style tags.</p>
+    <div class="result" id="result" style="display: none;">
+      <h3>Vocal similarity</h3>
+      <div class="top-artist" id="topArtist"></div>
+      <h3>Style attributes</h3>
+      <div class="tags" id="tags"></div>
+      <div class="artist-list" id="artistList"></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

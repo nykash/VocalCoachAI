@@ -1,0 +1,2 @@
+# Put audio files here (mp3, wav, m4a, flac) that represent poor breath support.
+# Calibration uses voiced chunks from these files as the "0" reference.

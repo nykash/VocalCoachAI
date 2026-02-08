@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breath Support — Real-time</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(160deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+      color: #e8e8e8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.02em;
+    }
+    .sub {
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 2rem;
+      min-width: 320px;
+      max-width: 420px;
+      text-align: center;
+    }
+    .score-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      margin: 1.5rem 0;
+    }
+    .score-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .score-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #888;
+      margin-bottom: 0.25rem;
+    }
+    .score-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .score-value.calibrated { font-size: 1.75rem; }
+    .score-value.good { color: #6ee7b7; }
+    .score-value.mid { color: #fcd34d; }
+    .score-value.low { color: #f87171; }
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-start {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+    }
+    .btn-start:hover { box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5); }
+    .btn-stop {
+      background: linear-gradient(135deg, #64748b, #475569);
+      color: white;
+    }
+    .status {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      margin-top: 1rem;
+      min-height: 1.4em;
+    }
+    .status.listening { color: #6ee7b7; }
+    .details {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.8rem;
+      color: #94a3b8;
+      text-align: left;
+    }
+    .details dt { float: left; margin-right: 0.5rem; color: #64748b; }
+    .details dd { margin: 0.25rem 0; }
+    .error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1>Breath Support</h1>
+  <p class="sub">Sing or speak — score updates every few seconds</p>
+  <div class="card">
+    <div class="score-row">
+      <div class="score-box">
+        <span class="score-label">Score (0–100)</span>
+        <span class="score-value" id="score">—</span>
+      </div>
+      <div class="score-box">
+        <span class="score-label">Calibrated (0–1)</span>
+        <span class="score-value calibrated" id="calibrated">—</span>
+      </div>
+    </div>
+    <button class="btn btn-start" id="btn" type="button">Start microphone</button>
+    <p class="status" id="status">Click to start and allow microphone access.</p>
+    <dl class="details" id="details"></dl>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

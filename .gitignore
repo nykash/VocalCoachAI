@@ -26,3 +26,6 @@ venv
 *.sln
 *.sw?
 *.env
+
+# Override global ignore: track eda in this repo
+!eda
