@@ -4,15 +4,19 @@ export interface PitchResult {
   noteName: string;
   octave: number;
   noteLabel: string;
+  /** Same note in flat notation (e.g. "Gb4" for F#4) */
+  noteLabelFlat: string;
   centsOff: number;
 }
 
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const NOTE_NAMES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const NOTE_NAMES_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
 export function frequencyToNote(frequency: number): {
   noteName: string;
   octave: number;
   noteLabel: string;
+  noteLabelFlat: string;
   centsOff: number;
 } {
   const semitonesFromA4 = 12 * Math.log2(frequency / 440);
@@ -23,12 +27,14 @@ export function frequencyToNote(frequency: number): {
   const midiNote = 69 + roundedSemitones;
   const octave = Math.floor(midiNote / 12) - 1;
   const noteIndex = ((midiNote % 12) + 12) % 12;
-  const noteName = NOTE_NAMES[noteIndex];
+  const noteName = NOTE_NAMES_SHARP[noteIndex];
+  const noteNameFlat = NOTE_NAMES_FLAT[noteIndex];
 
   return {
     noteName,
     octave,
     noteLabel: `${noteName}${octave}`,
+    noteLabelFlat: `${noteNameFlat}${octave}`,
     centsOff,
   };
 }

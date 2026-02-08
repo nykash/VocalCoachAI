@@ -42,8 +42,8 @@ export function useSongAnalyser(audioFile: File | null, isPlaying: boolean) {
       analyser.maxDecibels = -10;
 
       source.connect(analyser);
-      // DO NOT connect to destination - no audio playback to prevent feedback
-      // User will follow the visual guide (lyrics + pitch graph) instead
+      analyser.connect(audioContext.destination);
+      // Play song through speakers so user can sing along (karaoke)
 
       analyserRef.current = analyser;
       sourceRef.current = source as any;

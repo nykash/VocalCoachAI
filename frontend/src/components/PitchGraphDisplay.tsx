@@ -1,6 +1,18 @@
 import { useEffect, useRef } from "react";
-import { PitchResult } from "@/lib/pitchDetection";
+import { PitchResult, frequencyToNote } from "@/lib/pitchDetection";
 import { cn } from "@/lib/utils";
+
+function formatFreqAsNote(freq: number): string {
+  const { noteLabel, noteLabelFlat } = frequencyToNote(freq);
+  return noteLabel === noteLabelFlat ? noteLabel : `${noteLabel}/${noteLabelFlat}`;
+}
+
+/** Octave-invariant pitch distance in cents (0 = same note in any octave, max 600). */
+function pitchClassCents(freq1: number, freq2: number): number {
+  const cents = 1200 * Math.log2(freq1 / freq2);
+  const mod = ((cents % 1200) + 1200) % 1200;
+  return Math.min(mod, 1200 - mod);
+}
 
 interface PitchGraphDisplayProps {
   targetPitch: PitchResult | null;
@@ -8,6 +20,11 @@ interface PitchGraphDisplayProps {
   isListening: boolean;
   isPlaying: boolean;
 }
+
+/** Cents threshold: within this many cents (pitch-class) counts as "in tune" for the score */
+const ALIGNMENT_CENTS_THRESHOLD = 100;
+/** EMA alpha for denoising pitch before comparison (lower = smoother, 0.2 = heavy smoothing) */
+const ALIGNMENT_SMOOTHING_ALPHA = 0.2;
 
 const PitchGraphDisplay = ({
   targetPitch,
@@ -19,11 +36,23 @@ const PitchGraphDisplay = ({
   const pitchHistoryRef = useRef<number[]>([]);
   const targetHistoryRef = useRef<number[]>([]);
   const lastTargetFreqRef = useRef<number | null>(null);
+  const inTuneFramesRef = useRef(0);
+  const totalFramesRef = useRef(0);
+  const smoothedUserFreqRef = useRef<number | null>(null);
+  const smoothedTargetFreqRef = useRef<number | null>(null);
 
   // Keep history of last 200 readings
   const maxHistory = 200;
 
   useEffect(() => {
+    // Reset alignment score and smoothing when not singing along
+    if (!isPlaying || !isListening) {
+      inTuneFramesRef.current = 0;
+      totalFramesRef.current = 0;
+      smoothedUserFreqRef.current = null;
+      smoothedTargetFreqRef.current = null;
+    }
+
     // Add current pitch to history
     if (isListening && userPitch) {
       pitchHistoryRef.current.push(userPitch.frequency);
@@ -50,11 +79,43 @@ const PitchGraphDisplay = ({
       if (targetHistoryRef.current.length > maxHistory) {
         targetHistoryRef.current.shift();
       }
+
+      // Accumulate pitch alignment for score: octave-invariant, denoised
+      if (targetPitch && userPitch && isListening) {
+        const alpha = ALIGNMENT_SMOOTHING_ALPHA;
+        const u = userPitch.frequency;
+        const t = targetPitch.frequency;
+
+        if (smoothedUserFreqRef.current === null) {
+          smoothedUserFreqRef.current = u;
+        } else {
+          smoothedUserFreqRef.current = alpha * smoothedUserFreqRef.current + (1 - alpha) * u;
+        }
+        if (smoothedTargetFreqRef.current === null) {
+          smoothedTargetFreqRef.current = t;
+        } else {
+          smoothedTargetFreqRef.current = alpha * smoothedTargetFreqRef.current + (1 - alpha) * t;
+        }
+
+        const centsDist = pitchClassCents(
+          smoothedUserFreqRef.current,
+          smoothedTargetFreqRef.current
+        );
+        totalFramesRef.current += 1;
+        if (centsDist <= ALIGNMENT_CENTS_THRESHOLD) {
+          inTuneFramesRef.current += 1;
+        }
+      }
     } else {
       targetHistoryRef.current = [];
       lastTargetFreqRef.current = null;
     }
   }, [userPitch, targetPitch, isListening, isPlaying]);
+
+  const totalFrames = totalFramesRef.current;
+  const inTuneFrames = inTuneFramesRef.current;
+  const alignmentScore =
+    totalFrames >= 10 ? Math.round((inTuneFrames / totalFrames) * 100) : null;
 
   // Draw canvas
   useEffect(() => {
@@ -99,8 +160,9 @@ const PitchGraphDisplay = ({
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Label
-        ctx.fillText(`${freq}Hz`, padding - 10, y + 4);
+        // Label: frequency and note (sharp/flat)
+        const noteStr = formatFreqAsNote(freq);
+        ctx.fillText(`${freq}Hz ${noteStr}`, padding - 10, y + 4);
       }
     }
 
@@ -232,6 +294,41 @@ const PitchGraphDisplay = ({
         {status.message}
       </div>
 
+      {/* Pitch alignment score */}
+      {alignmentScore !== null && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground mb-1">Pitch alignment</div>
+            <div className="flex items-baseline justify-center gap-2">
+              <span
+                className={cn(
+                  "text-4xl font-bold tabular-nums",
+                  alignmentScore >= 80
+                    ? "text-green-600"
+                    : alignmentScore >= 60
+                      ? "text-green-500"
+                      : alignmentScore >= 40
+                        ? "text-yellow-600"
+                        : "text-orange-500"
+                )}
+              >
+                {alignmentScore}
+              </span>
+              <span className="text-xl font-medium text-muted-foreground">%</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Same note in any octave counts; within {ALIGNMENT_CENTS_THRESHOLD}¢ (smoothed)
+            </p>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-300"
+                style={{ width: `${alignmentScore}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Graph */}
       <div className="rounded-lg border border-border bg-card p-4">
         <canvas
@@ -242,15 +339,21 @@ const PitchGraphDisplay = ({
         />
       </div>
 
-      {/* Current pitch display */}
+      {/* Current pitch display - notes as primary */}
       <div className="grid grid-cols-2 gap-4">
         {/* Song box - always visible */}
         <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-center">
           <div className="text-xs text-muted-foreground">Song</div>
           <div className="text-2xl font-bold text-blue-500">
+            {targetPitch
+              ? targetPitch.noteLabel === targetPitch.noteLabelFlat
+                ? targetPitch.noteLabel
+                : `${targetPitch.noteLabel} (${targetPitch.noteLabelFlat})`
+              : "—"}
+          </div>
+          <div className="text-xs text-muted-foreground">
             {targetPitch ? targetPitch.frequency.toFixed(1) + " Hz" : "—"}
           </div>
-          <div className="text-xs text-muted-foreground">{targetPitch ? targetPitch.noteLabel : "—"}</div>
         </div>
 
         {/* User box - always visible */}
@@ -271,18 +374,28 @@ const PitchGraphDisplay = ({
                 : "text-orange-500"
               : "text-muted-foreground"
           )}>
+            {userPitch
+              ? userPitch.noteLabel === userPitch.noteLabelFlat
+                ? userPitch.noteLabel
+                : `${userPitch.noteLabel} (${userPitch.noteLabelFlat})`
+              : "—"}
+          </div>
+          <div className="text-xs text-muted-foreground">
             {userPitch ? userPitch.frequency.toFixed(1) + " Hz" : "—"}
           </div>
-          <div className="text-xs text-muted-foreground">{userPitch ? userPitch.noteLabel : "—"}</div>
         </div>
       </div>
 
-      {/* Difference indicator - always render to avoid layout shift */}
+      {/* Difference indicator - in cents (note-based) */}
       <div className="rounded-lg border border-border bg-card p-3 text-center">
-        <div className="text-xs text-muted-foreground mb-1">Frequency Difference</div>
+        <div className="text-xs text-muted-foreground mb-1">Pitch difference</div>
         <div className="text-lg font-semibold">
           {userPitch && targetPitch
-            ? `${Math.abs(userPitch.frequency - targetPitch.frequency).toFixed(1)} Hz`
+            ? (() => {
+                const cents = Math.round(1200 * Math.log2(userPitch.frequency / targetPitch.frequency));
+                const absCents = Math.abs(cents);
+                return absCents === 0 ? "In tune" : `${absCents}¢ ${cents > 0 ? "sharp" : "flat"}`;
+              })()
             : "—"}
         </div>
       </div>
